@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiError } from '../../../api/client';
 import { ticketsApi } from '../../../api/tickets';
 import type { PagedResult, TicketFilters, TicketListItem } from '../../../types/api';
@@ -28,31 +28,55 @@ interface State {
 /** Owns the ticket list's filters and the data they produce. */
 export function useTicketList() {
   const [filters, setFilters] = useState<TicketFilters>(emptyFilters);
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   const [state, setState] = useState<State>({ isLoading: true });
 
-  const load = async () => {
+  // Debounce search text so keystrokes do not send requests on every letter
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, DEBOUNCE_MS);
+
+    return () => window.clearTimeout(handle);
+  }, [filters.search]);
+
+  // Combined query where search is debounced, but all dropdown/other filters take immediate effect
+  const queryToFetch = useMemo<TicketFilters>(
+    () => ({
+      ...filters,
+      search: debouncedSearch,
+    }),
+    [filters, debouncedSearch],
+  );
+
+  const load = useCallback(async (query: TicketFilters) => {
     setState((current) => ({ ...current, isLoading: true, error: undefined }));
 
     try {
-      const data = await ticketsApi.getTickets(filters);
+      const data = await ticketsApi.getTickets(query);
       setState({ isLoading: false, data, error: undefined });
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Unable to load tickets.';
       setState((current) => ({ ...current, isLoading: false, error: message }));
     }
-  };
+  }, []);
+
+  // Track changes across debounced search and any other filter (including future ones like slaStatus)
+  const queryKey = useMemo(() => {
+    const { search: _ignored, ...nonSearchFilters } = filters;
+    return JSON.stringify({ ...nonSearchFilters, debouncedSearch });
+  }, [filters, debouncedSearch]);
 
   useEffect(() => {
-    const handle = window.setTimeout(load, DEBOUNCE_MS);
-
-    return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filters object identity changes every render
-  }, [filters.search, filters.page, filters.pageSize]);
+    void load(queryToFetch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- queryKey controls when filter changes trigger fetch
+  }, [queryKey, load]);
 
   const updateFilters = (patch: Partial<TicketFilters>) =>
     setFilters((current) => ({ ...current, ...patch, page: patch.page ?? 1 }));
 
   const resetFilters = () => setFilters(emptyFilters);
 
-  return { filters, updateFilters, resetFilters, reload: load, ...state };
+  return { filters, updateFilters, resetFilters, reload: () => load(queryToFetch), ...state };
 }
+
