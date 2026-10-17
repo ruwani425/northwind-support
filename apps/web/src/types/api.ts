@@ -182,3 +182,22 @@ export interface ProblemDetails {
   traceId?: string;
   errors?: Record<string, string[]>;
 }
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthenticatedUser {
+  id: number;
+  fullName: string;
+  email: string;
+  role: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  expiresAtUtc: string;
+  agent: AuthenticatedUser;
+}
+
