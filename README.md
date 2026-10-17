@@ -62,6 +62,18 @@ npm run web                   # terminal 2: React dev server
 In Development the API applies migrations and seeds demo data on startup. **Never commit real
 credentials.**
 
+### Development Credentials (Task 3 Authentication)
+
+All seeded agents in development are configured with the following credentials:
+- **Default Password:** `Support123!`
+- **Sample Logins:**
+  - `alex.turner@northwind-support.example` (Support Lead)
+  - `ben.osei@northwind-support.example` (Support Agent)
+  - `priya.nair@northwind-support.example` (Support Agent)
+  - `sara.lindqvist@northwind-support.example` (Support Agent)
+  - `marcus.doyle@northwind-support.example` (Support Agent)
+  - `yuki.tanaka@northwind-support.example` (Inactive agent - rejected with 401)
+
 **Visual Studio 2026:** run `npm run db:up`, open `SupportDesk.sln`, set
 **SupportDesk.Presentation** as the startup project, and press F5 on the **https** profile.
 

@@ -1,10 +1,59 @@
-import type { ProblemDetails } from '../types/api';
+import type { AuthenticatedUser, ProblemDetails } from '../types/api';
 
 /**
  * Where the API lives. In development this stays '/api' and the Vite dev server proxies it
  * to the backend; set VITE_API_BASE_URL to point a build somewhere else. See .env.example.
  */
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api';
+
+const TOKEN_KEY = 'northwind_token';
+const USER_KEY = 'northwind_user';
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // localStorage might not be available (e.g. storage disabled)
+  }
+}
+
+export function getStoredUser(): AuthenticatedUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as AuthenticatedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredUser(user: AuthenticatedUser | null): void {
+  try {
+    if (user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(USER_KEY);
+    }
+  } catch {
+    // localStorage might not be available
+  }
+}
+
+export function clearStoredAuth(): void {
+  setStoredToken(null);
+  setStoredUser(null);
+}
 
 /** A failed HTTP call, carrying the problem document the API returned. */
 export class ApiError extends Error {
@@ -26,19 +75,39 @@ export class ApiError extends Error {
 }
 
 /**
- * The single place that talks to the API. Returns parsed JSON, or throws an
- * {@link ApiError} that callers can show to the user.
+ * The single place that talks to the API. Attaches Bearer token if present, returns parsed JSON,
+ * or throws an {@link ApiError}. On 401 Unauthorized, automatically clears session and redirects to /login.
  */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredToken();
+  const headers = new Headers(init?.headers);
+
+  if (!headers.has('Content-Type') && !(init?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearStoredAuth();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login') {
+          const redirect = encodeURIComponent(currentPath + window.location.search);
+          window.location.assign(`/login?redirect=${redirect}`);
+        }
+      }
+    }
+
     const problem = await readProblem(response);
 
     throw new ApiError(

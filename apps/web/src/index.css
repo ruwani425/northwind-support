@@ -76,6 +76,33 @@ a {
   font-weight: 600;
 }
 
+.app__user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app__user-info {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.app__user-name {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.app__user-role {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--colour-page);
+  color: var(--colour-muted);
+  border: 1px solid var(--colour-border);
+}
+
 .app__main {
   max-width: 1200px;
   margin: 0 auto;
