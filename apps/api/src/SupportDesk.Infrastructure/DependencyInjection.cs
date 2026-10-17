@@ -32,14 +32,17 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
 
         services.AddScoped<ITicketRepository, TicketRepository>();
+        services.AddScoped<ITicketEscalationRepository, TicketEscalationRepository>();
         services.AddScoped<IAgentRepository, AgentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
 
         services.AddScoped<ITicketQueries, TicketQueries>();
+        services.AddScoped<ITicketEscalationQueries, TicketEscalationQueries>();
         services.AddScoped<ICustomerQueries, CustomerQueries>();
         services.AddScoped<IAgentQueries, AgentQueries>();
         services.AddScoped<ICategoryQueries, CategoryQueries>();
+
 
         services.AddScoped<SupportDbSeeder>();
 

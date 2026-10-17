@@ -3,8 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { Spinner } from '../../components/Spinner';
 import { useReferenceData } from '../../hooks/useReferenceData';
+import { formatDateTime } from '../../lib/format';
 import type { TicketDetail } from '../../types/api';
 import { CreateTicketForm } from './components/CreateTicketForm';
+import { PriorityBadge } from './components/TicketBadges';
+import { SlaIndicator } from './components/SlaIndicator';
 
 export function CreateTicketPage() {
   const reference = useReferenceData();
@@ -29,10 +32,49 @@ export function CreateTicketPage() {
       )}
 
       {created && (
-        <div className="card notice" role="status">
+        <div className="card notice" role="status" data-testid="triage-result">
           <p>
             Raised <strong>{created.reference}</strong> for {created.customer.name}.
           </p>
+
+          <div className="triage-summary">
+            <h3>Triage Decision</h3>
+            <dl className="summary">
+              <div>
+                <dt>Priority</dt>
+                <dd>
+                  <PriorityBadge priority={created.priority} />
+                  {created.triage?.priorityReason && (
+                    <span className="summary__note">{created.triage.priorityReason}</span>
+                  )}
+                </dd>
+              </div>
+
+              <div>
+                <dt>SLA</dt>
+                <dd>
+                  <SlaIndicator status={created.slaStatus} />
+                  {created.dueAtUtc && (
+                    <span className="summary__note">Due {formatDateTime(created.dueAtUtc)}</span>
+                  )}
+                  {created.triage?.slaReason && (
+                    <span className="summary__note">{created.triage.slaReason}</span>
+                  )}
+                </dd>
+              </div>
+
+              <div>
+                <dt>Assigned agent</dt>
+                <dd>
+                  <strong>{created.assignedAgent?.fullName ?? 'Unassigned'}</strong>
+                  {created.triage?.assignmentReason && (
+                    <span className="summary__note">{created.triage.assignmentReason}</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
           <div className="button-row">
             <button
               type="button"

@@ -23,12 +23,10 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
     /// </remarks>
     public async Task<PagedResult<TicketListItemDto>> GetPagedAsync(TicketQuery query, CancellationToken ct)
     {
-        var tickets = ApplyFilters(TicketsWithLabels(), query);
+        var now = clock.UtcNow;
+        var tickets = ApplyFilters(TicketsWithLabels(), query, now);
 
         var totalCount = await tickets.CountAsync(ct);
-
-
-        var now = clock.UtcNow;
 
         var items = await ApplySort(tickets, query)
             .Skip((query.Page - 1) * query.PageSize)
@@ -47,7 +45,7 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
                 UpdatedAtUtc = x.Ticket.UpdatedAtUtc,
                 DueAtUtc = x.Ticket.DueAtUtc,
                 ResolvedAtUtc = x.Ticket.ResolvedAtUtc,
-                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now)
+                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now, x.Ticket.CreatedAtUtc, 25.0)
             })
             .ToListAsync(ct);
 
@@ -76,7 +74,7 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
                 UpdatedAtUtc = x.Ticket.UpdatedAtUtc,
                 DueAtUtc = x.Ticket.DueAtUtc,
                 ResolvedAtUtc = x.Ticket.ResolvedAtUtc,
-                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now)
+                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now, x.Ticket.CreatedAtUtc, 25.0)
             })
             .FirstOrDefaultAsync(ct);
     }
@@ -103,7 +101,7 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
                 UpdatedAtUtc = x.Ticket.UpdatedAtUtc,
                 DueAtUtc = x.Ticket.DueAtUtc,
                 ResolvedAtUtc = x.Ticket.ResolvedAtUtc,
-                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now)
+                SlaStatus = SlaEvaluator.Evaluate(x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now, x.Ticket.CreatedAtUtc, 25.0)
             })
             .ToListAsync(ct);
     }
@@ -118,9 +116,10 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
         from agent in db.Set<Agent>().Where(a => a.Id == ticket.AssignedAgentId).DefaultIfEmpty()
         select new TicketWithLabels { Ticket = ticket, Customer = customer, Category = category, Agent = agent };
 
-    private static IQueryable<TicketWithLabels> ApplyFilters(
+    private IQueryable<TicketWithLabels> ApplyFilters(
         IQueryable<TicketWithLabels> source,
-        TicketQuery query)
+        TicketQuery query,
+        DateTime now)
     {
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -161,8 +160,53 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
             source = source.Where(x => x.Ticket.AssignedAgentId == null);
         }
 
+        if (query.SlaStatus.HasValue)
+        {
+            source = ApplySlaStatusFilter(source, query.SlaStatus.Value, now);
+        }
+
         return source;
     }
+
+    private IQueryable<TicketWithLabels> ApplySlaStatusFilter(
+        IQueryable<TicketWithLabels> source,
+        SlaStatus slaStatus,
+        DateTime now)
+    {
+        return slaStatus switch
+        {
+            SlaStatus.NotApplicable => source.Where(x => x.Ticket.DueAtUtc == null),
+            SlaStatus.Met => source.Where(x =>
+                x.Ticket.ResolvedAtUtc != null &&
+                x.Ticket.DueAtUtc != null &&
+                x.Ticket.ResolvedAtUtc <= x.Ticket.DueAtUtc),
+            SlaStatus.Breached => source.Where(x =>
+                (x.Ticket.ResolvedAtUtc != null && x.Ticket.DueAtUtc != null && x.Ticket.ResolvedAtUtc > x.Ticket.DueAtUtc) ||
+                (x.Ticket.ResolvedAtUtc == null && x.Ticket.DueAtUtc != null && now > x.Ticket.DueAtUtc)),
+            SlaStatus.AtRisk => db.Database.IsSqlServer()
+                ? source.Where(x =>
+                    x.Ticket.ResolvedAtUtc == null &&
+                    x.Ticket.DueAtUtc != null &&
+                    now <= x.Ticket.DueAtUtc &&
+                    EF.Functions.DateDiffSecond(now, x.Ticket.DueAtUtc) <= EF.Functions.DateDiffSecond(x.Ticket.CreatedAtUtc, x.Ticket.DueAtUtc) * 0.25)
+                : source.Where(x =>
+                    x.Ticket.ResolvedAtUtc == null &&
+                    x.Ticket.DueAtUtc != null &&
+                    now <= x.Ticket.DueAtUtc),
+            SlaStatus.WithinSla => db.Database.IsSqlServer()
+                ? source.Where(x =>
+                    x.Ticket.ResolvedAtUtc == null &&
+                    x.Ticket.DueAtUtc != null &&
+                    now <= x.Ticket.DueAtUtc &&
+                    EF.Functions.DateDiffSecond(now, x.Ticket.DueAtUtc) > EF.Functions.DateDiffSecond(x.Ticket.CreatedAtUtc, x.Ticket.DueAtUtc) * 0.25)
+                : source.Where(x =>
+                    x.Ticket.ResolvedAtUtc == null &&
+                    x.Ticket.DueAtUtc != null &&
+                    now <= x.Ticket.DueAtUtc),
+            _ => source
+        };
+    }
+
 
     private static IQueryable<TicketWithLabels> ApplySort(IQueryable<TicketWithLabels> source, TicketQuery query)
     {

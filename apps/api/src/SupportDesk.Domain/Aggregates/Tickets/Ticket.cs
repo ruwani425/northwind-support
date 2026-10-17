@@ -59,7 +59,9 @@ public sealed class Ticket : AggregateRoot
         int customerId,
         int categoryId,
         TicketPriority priority,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        DateTime? dueAtUtc = null,
+        int? assignedAgentId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -75,7 +77,9 @@ public sealed class Ticket : AggregateRoot
             Priority = priority,
             Status = TicketStatus.New,
             CreatedAtUtc = nowUtc,
-            UpdatedAtUtc = nowUtc
+            UpdatedAtUtc = nowUtc,
+            DueAtUtc = dueAtUtc,
+            AssignedAgentId = assignedAgentId
         };
     }
 
@@ -111,4 +115,38 @@ public sealed class Ticket : AggregateRoot
         AssignedAgentId = agentId;
         UpdatedAtUtc = nowUtc;
     }
+
+    /// <summary>
+    /// Escalates the ticket: raises priority one level, recomputes due date and updates assignee.
+    /// </summary>
+    /// <exception cref="BusinessRuleViolationException">Ticket is at Critical priority or Resolved/Closed.</exception>
+    public void Escalate(TicketPriority newPriority, DateTime newDueAtUtc, int? newAgentId, DateTime nowUtc)
+    {
+        if (Priority == TicketPriority.Critical)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is already at Critical priority and cannot be escalated.");
+        }
+
+        if (!IsOpen)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is {Status} and cannot be escalated.");
+        }
+
+        Priority = newPriority;
+        DueAtUtc = newDueAtUtc;
+        AssignedAgentId = newAgentId;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public static TicketPriority? NextPriority(TicketPriority current) =>
+        current switch
+        {
+            TicketPriority.Low => TicketPriority.Medium,
+            TicketPriority.Medium => TicketPriority.High,
+            TicketPriority.High => TicketPriority.Critical,
+            _ => null
+        };
 }
+

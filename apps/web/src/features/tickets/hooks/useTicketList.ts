@@ -63,11 +63,13 @@ export function useTicketList() {
 
   // Track changes across debounced search and any other filter (including future ones like slaStatus)
   const queryKey = useMemo(() => {
-    const { search: _ignored, ...nonSearchFilters } = filters;
-    return JSON.stringify({ ...nonSearchFilters, debouncedSearch });
+    const nonSearch = { ...filters };
+    delete (nonSearch as Partial<TicketFilters>).search;
+    return JSON.stringify({ ...nonSearch, debouncedSearch });
   }, [filters, debouncedSearch]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(queryToFetch);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- queryKey controls when filter changes trigger fetch
   }, [queryKey, load]);

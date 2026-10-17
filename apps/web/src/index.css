@@ -443,3 +443,131 @@ textarea[aria-invalid='true'] {
   white-space: nowrap;
   border: 0;
 }
+
+.button--warning {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.button--warning:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.field__required {
+  color: var(--colour-danger-text);
+}
+
+.field__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.field__error {
+  color: var(--colour-danger-text);
+  font-size: 0.82rem;
+}
+
+.field__hint {
+  color: var(--colour-muted);
+}
+
+.field__count {
+  color: var(--colour-muted);
+  margin-left: auto;
+}
+
+.escalation-panel__notice {
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  color: var(--colour-muted);
+}
+
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timeline__item {
+  padding: 12px 16px;
+  background: var(--colour-page);
+  border-radius: var(--radius);
+  border-left: 3px solid #d97706;
+}
+
+.timeline__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.timeline__transition {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline__arrow {
+  color: var(--colour-muted);
+  font-weight: bold;
+}
+
+.timeline__time {
+  font-size: 0.8rem;
+  color: var(--colour-muted);
+}
+
+.timeline__reason {
+  margin: 0 0 8px;
+  font-style: italic;
+  color: var(--colour-text);
+}
+
+.timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.timeline__meta dt {
+  color: var(--colour-muted);
+}
+
+.timeline__meta dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.triage-summary {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fdfefe;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+}
+
+.triage-summary h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.sla-indicator {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sla-indicator__icon {
+  margin-right: 4px;
+}

@@ -35,4 +35,8 @@ public sealed class TicketDetailDto
 
     /// <summary>Derived from the dates above; never stored.</summary>
     public SlaStatus SlaStatus { get; set; }
+
+    /// <summary>Populated after auto-triage on ticket creation.</summary>
+    public TriageResultDto? Triage { get; set; }
 }
+

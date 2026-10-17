@@ -28,6 +28,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddApplication();
+builder.Services.Configure<SupportDesk.Application.Contracts.Common.SlaOptions>(
+    builder.Configuration.GetSection(SupportDesk.Application.Contracts.Common.SlaOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
