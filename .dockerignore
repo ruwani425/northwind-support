@@ -1,0 +1,17 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/.idea
+**/bin
+**/obj
+**/node_modules
+.env
+.env.*
+!.env.example
+apps/web/
+tests/
+spec/
+README.md
+APPROACH.md
+ASSIGNMENT_CANDIDATE.*
