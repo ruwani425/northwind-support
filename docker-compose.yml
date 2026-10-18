@@ -1,5 +1,4 @@
-# SQL Server for local development only. The password below is a throwaway local
-# placeholder - never commit a real credential.
+# Docker Compose environment for SupportDesk: SQL Server 2022 + .NET 10 API
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -22,6 +21,30 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+    networks:
+      default:
+        aliases:
+          - db
+          - sqlserver
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: supportdesk-api
+    ports:
+      - "5080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__Default: "Server=sqlserver,1433;Database=SupportDesk;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Local_Dev_Password1};TrustServerCertificate=True;Encrypt=False"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-SupportDesk-Super-Secret-Jwt-Key-For-Northwind-32-Bytes!}"
+      Jwt__Issuer: "${JWT_ISSUER:-SupportDesk}"
+      Jwt__Audience: "${JWT_AUDIENCE:-SupportDesk}"
+      Jwt__LifetimeHours: "${JWT_LIFETIME_HOURS:-8}"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
 
 volumes:
   supportdesk-sql:
