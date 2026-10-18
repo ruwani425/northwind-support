@@ -10,12 +10,42 @@ Built with **.NET 10 Web API**, **React 19 / TypeScript**, and **SQL Server 2022
 
 All four tasks (Tasks 1, 2, 3, and 4) have been completed, tested, and verified according to the specification in [`ASSIGNMENT_CANDIDATE.md`](ASSIGNMENT_CANDIDATE.md).
 
-| # | Task | Status | What Was Delivered |
-|---|---|---|---|
-| 1 | **Defect fix & server filtering** | **Completed** | Fixed DEFECT-117 (SLA breach flag on resolved tickets) with regression tests; implemented database-side predicate filtering, search, sorting, and pagination. |
-| 2 | **Ticket escalation & triage** | **Completed** | Auto-triage on creation (specialist routing, capacity limits, category overrides); monotonic ticket escalation with audit log; SLA tracking indicator; full React UI. |
-| 3 | **Login & authentication** | **Completed** | Salted PBKDF2 password hashing (100k iterations); JWT bearer token issuance; central route authorization fallback; protected React routes; `/login` page; header profile & session management. |
-| 4 | **Dockerise the API** | **Completed** | Multi-stage Dockerfile with cached dependency layer; non-root user `app` (UID 1654); HTTP port 8080; unauthenticated `GET /health` database readiness check; `docker-compose.yml` integration. |
+| # | Task | Status | What Was Delivered | Time Spent |
+|---|---|---|---|---|
+| 1 | **Defect fix & server filtering** | **Completed** | Fixed DEFECT-117 with regression test; implemented database-side predicate filtering, search, sorting, and pagination. | ~2.5 hrs |
+| 2 | **Ticket escalation & triage** | **Completed** | Auto-triage on creation (specialist routing, capacity limits, category overrides); monotonic ticket escalation with audit log; SLA tracking indicator; full React UI. | ~5.5 hrs |
+| 3 | **Login & authentication** | **Completed** | Salted PBKDF2 password hashing (100k iterations); JWT bearer token issuance; central route authorization fallback; protected React routes; `/login` page; header profile & session management. | ~3.5 hrs |
+| 4 | **Dockerise the API** | **Completed** | Multi-stage Dockerfile with cached dependency layer; non-root user `app` (UID 1654); HTTP port 8080; unauthenticated `GET /health` database readiness check; `docker-compose.yml` integration. | ~1.5 hrs |
+| **Total** | | | | **~13.0 hrs** |
+
+---
+
+## Design Decisions: Chosen vs. Rejected
+
+### 1. Domain Modeling: Rich Aggregate Root vs. Anemic CRUD Services
+- **Chosen:** Enforced all business invariants inside the `Ticket` aggregate root (`Ticket.Escalate()`, `Ticket.Assign()`).
+- **Rejected:** Anemic data models mutated directly across controllers or application handlers.
+- **Why:** The assessment rules require strict monotonic transitions (`Low` $\rightarrow$ `Medium` $\rightarrow$ `High` $\rightarrow$ `Critical`) and SLA recalculations based on customer tiers. Centralizing these in the aggregate ensures invalid states cannot be persisted regardless of the entry point.
+
+### 2. Authentication: PBKDF2 & Single Agent Aggregate vs. Full ASP.NET Identity or Separate Users Table
+- **Chosen:** Added `PasswordHash` directly to `Agent` aggregate root with standard RFC 2898 PBKDF2 (100,000 iterations, 128-bit salt, constant-time verification).
+- **Rejected:** Introducing Microsoft ASP.NET Identity (which generates 7+ boilerplate tables: `AspNetUsers`, `AspNetRoles`, `AspNetUserClaims`, etc.) or creating an external `Users` table with 1-to-1 foreign key.
+- **Why:** Every authenticated user in SupportDesk is strictly an `Agent`. Adding a column preserves relational integrity without unnecessary schema bloat or Identity framework coupling.
+
+### 3. User Provenance: Cryptographic JWT Claims vs. Client-Supplied Actor Names (AU-8)
+- **Chosen:** Extracted `escalatedBy` directly from authenticated token claims (`ClaimTypes.Email` / `ClaimTypes.Name`).
+- **Rejected:** Accepting client-provided actor names from the HTTP request body.
+- **Why:** Trusting the request body allows malicious actors to impersonate other agents during escalation audit logging. Claims extraction ensures non-repudiation.
+
+### 4. SLA Auto-Triage: Capacity-Aware Specialist Routing vs. Round-Robin
+- **Chosen:** Qualified agents are filtered by ticket category specialization and selected by the lowest active open ticket count. If all qualified agents are at `MaxOpenTickets` capacity, the ticket is left unassigned with an explicit triage reason (`BR-7`).
+- **Rejected:** Blind round-robin or failing ticket creation when agents are at capacity.
+- **Why:** Customer tickets must never be dropped or fail submission due to agent workload; logging the capacity diagnostic allows team leads to rebalance work.
+
+### 5. Docker Build: Multi-Stage Dependency Restore Caching vs. Single-Stage Copy
+- **Chosen:** Two-stage Dockerfile copying `global.json`, `Directory.Packages.props`, `Directory.Build.props`, and `.csproj` files prior to `dotnet restore`.
+- **Rejected:** Copying the entire repository and running restore in one step.
+- **Why:** Restoring NuGet packages takes ~20 seconds. Caching this layer allows subsequent image builds upon source code changes to complete in under 1 second.
 
 ---
 
